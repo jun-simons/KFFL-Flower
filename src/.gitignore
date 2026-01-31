@@ -1,0 +1,22 @@
+# Byte-code files
+__pycache__/
+*.pyc
+*.pyd
+*.pyo
+*.egg-info/
+.Python
+
+# Virtual environment
+.venv
+env/
+venv/
+ENV/
+build/
+develop-eggs/
+dist/
+
+.vscode/
+
+# OS-specific files
+.DS_Store # macOS
+Thumbs.db # Windows
