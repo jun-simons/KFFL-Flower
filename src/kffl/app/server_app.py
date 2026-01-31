@@ -70,8 +70,8 @@ def main(grid: Grid, context: Context) -> None:
         selected = _sample_nodes(all_nodes, fraction_train, min_nodes)
 
         # ---- (1) FAIR1: query local terms ----
-        fair1_msgs: list[Message] = []   # <-- this line must exist before append
-
+        fair1_msgs: list[Message] = []
+        
         for nid in selected:
            rd = RecordDict({"arrays": global_arrays})
            fair1_msgs.append(
@@ -124,6 +124,10 @@ def main(grid: Grid, context: Context) -> None:
         client_sds: list[dict[str, torch.Tensor]] = []
         client_weights: list[int] = []
 
+        total_examples = 0
+        weighted_loss_sum = 0.0
+        num_with_loss = 0
+
         for rep in train_replies:
             if not rep.has_content():
                 continue
@@ -134,10 +138,19 @@ def main(grid: Grid, context: Context) -> None:
             n = int(metrics["num-examples"]) if metrics is not None and "num-examples" in metrics else 1
             client_weights.append(n)
 
+            loss = float(metrics["train_loss"])
+            total_examples += n
+            weighted_loss_sum += n * loss
+            num_with_loss += 1
+
             client_sds.append(arrays.to_torch_state_dict())
 
         if client_sds:
             avg_sd = fedavg_state_dict(client_sds, client_weights)
             global_arrays = ArrayRecord.from_torch_state_dict(avg_sd)
-
+        
+        w0 = next(iter(global_arrays.to_torch_state_dict().values()))
+        print(f"[ROUND {server_round}] w0_norm={float(w0.norm()):.4f} G={G}")
+        avg_train_loss = (weighted_loss_sum / total_examples) if total_examples > 0 else float("nan")
+        print(f"[ROUND {server_round}] avg_train_loss={avg_train_loss:.4f} reports={num_with_loss}/{len(train_replies)}")
         print(f"[ROUND {server_round}] selected={len(selected)} G={G}")   
