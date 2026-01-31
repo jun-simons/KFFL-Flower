@@ -1,0 +1,47 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "kffl-flower"
+version = "0.1.0"
+description = "KFFL (Kernel/Fair Federated Learning) implemented with Flower Message API"
+readme = "README.md"
+requires-python = ">=3.10"
+license = "Apache-2.0"
+dependencies = [
+  "flwr[simulation]>=1.21.0",
+  "numpy>=2.0.0",
+  "torch>=2.2.0",
+  "torchvision>=0.17.0",
+]
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/kffl"]
+
+# Flower-app Details
+[tool.flwr.app]
+publisher = "your-lab-or-name"
+
+[tool.flwr.app.components]
+serverapp = "kffl.app.server_app:app"
+clientapp = "kffl.app.client_app:app"
+
+# Server-side run config
+[tool.flwr.app.config]
+num-server-rounds = 5
+fraction-train = 1.0
+min-nodes = 2
+
+# KFFL-specific knobs 
+kffl-num-rff = 1024
+kffl-lambda = 1.0
+local-epochs = 1
+batch-size = 64
+lr = 0.01
+
+[tool.flwr.federations]
+default = "local-simulation"
+
+[tool.flwr.federations.local-simulation]
+options.num-supernodes = 10
