@@ -62,10 +62,6 @@ def train_kffl(msg: Message, context: Context) -> Message:
     - Update locally (you'll replace loss/grad with KFFL objective)
     - Reply with updated weights + metrics
     """
-    
-    # TODO remove print
-    print(f"[CLIENT {context.node_id}] handling train.kffl has_G={G is not None}")
-
     arrays: ArrayRecord = msg.content["arrays"]
     config: ConfigRecord = msg.content.get("config", ConfigRecord({}))
 
@@ -95,4 +91,7 @@ def train_kffl(msg: Message, context: Context) -> Message:
     )
 
     content = RecordDict({"arrays": reply_arrays, "metrics": metrics})
+
+    #TODO: test print remove
+    print(f"[CLIENT {context.node_id}] handling train.kffl has_G={G is not None}") 
     return Message(content=content, reply_to=msg)

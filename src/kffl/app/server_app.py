@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import random
 import numpy as np
+import torch
 
 from flwr.app import ArrayRecord, ConfigRecord, Context, Message, RecordDict
 from flwr.serverapp import Grid, ServerApp
@@ -20,16 +21,31 @@ def _sample_nodes(node_ids: list[int], fraction: float, min_nodes: int) -> list[
     n = min(n, len(node_ids))
     return random.sample(node_ids, n)
 
-
-def _fedavg(state_dicts: list[Dict[str, np.ndarray]], weights: list[int]) -> Dict[str, np.ndarray]:
-    """FedAvg helper for numpy arrays."""
+def _fedavg_ndarrays(ndarrays_list: list[list[np.ndarray]], weights: list[int]) -> list[np.ndarray]:
+    """FedAvg over a list-of-lists of NumPy ndarrays."""
     total = float(sum(weights))
-    out: dict[str, np.ndarray] = {}
-    for k in state_dicts[0].keys():
+    avg = [np.zeros_like(arr) for arr in ndarrays_list[0]]
+
+    for client_params, w in zip(ndarrays_list, weights):
+        scale = w / total
+        for j, arr in enumerate(client_params):
+            avg[j] += arr * scale
+
+    return avg
+
+
+def fedavg_state_dict(
+    sds: list[dict[str, torch.Tensor]],
+    weights: list[int],
+) -> dict[str, torch.Tensor]:
+    total = float(sum(weights))
+    out: dict[str, torch.Tensor] = {}
+
+    for k in sds[0].keys():
         acc = None
-        for sd, w in zip(state_dicts, weights):
-            term = sd[k] * (w / total)
-            acc = term if acc is None else (acc + term)
+        for sd, w in zip(sds, weights):
+            t = sd[k].detach().cpu()
+            acc = t * (w / total) if acc is None else acc + t * (w / total)
         out[k] = acc
     return out
 
@@ -54,18 +70,19 @@ def main(grid: Grid, context: Context) -> None:
         selected = _sample_nodes(all_nodes, fraction_train, min_nodes)
 
         # ---- (1) FAIR1: query local terms ----
-        fair1_msgs: list[Message] = []
-        for nid in selected:
-            rd = RecordDict({"arrays": global_arrays})
-            fair1_msgs.append(
-                grid.create_message(
-                    content=rd,
-                    message_type=QUERY_FAIR1,
-                    dst_node_id=nid,
-                    group_id=str(server_round),
-                )
-            )
+        fair1_msgs: list[Message] = []   # <-- this line must exist before append
 
+        for nid in selected:
+           rd = RecordDict({"arrays": global_arrays})
+           fair1_msgs.append(
+               Message(
+                   content=rd,
+                   dst_node_id=nid,
+                   message_type=QUERY_FAIR1,
+                   group_id=str(server_round),
+               )
+           )
+        
         fair1_replies = list(grid.send_and_receive(fair1_msgs))
         local_terms = []
         for rep in fair1_replies:
@@ -91,20 +108,20 @@ def main(grid: Grid, context: Context) -> None:
         train_msgs: list[Message] = []
         for nid in selected:
             rd = RecordDict({"arrays": global_arrays, "config": train_cfg})
-            train_msgs.append(
-                grid.create_message(
-                    content=rd,
-                    message_type=TRAIN_KFFL,
+            
+            train_msgs.append( 
+                Message( content=rd,
                     dst_node_id=nid,
+                    message_type=TRAIN_KFFL,
                     group_id=str(server_round),
                 )
             )
 
+
         train_replies = list(grid.send_and_receive(train_msgs))
 
-        # ---- (3) Aggregate (FedAvg stub) ----
-        
-        client_params: list[list[np.ndarray]] = []
+        # ---- (3) Aggregate (FedAvg) ----
+        client_sds: list[dict[str, torch.Tensor]] = []
         client_weights: list[int] = []
 
         for rep in train_replies:
@@ -117,11 +134,10 @@ def main(grid: Grid, context: Context) -> None:
             n = int(metrics["num-examples"]) if metrics is not None and "num-examples" in metrics else 1
             client_weights.append(n)
 
-            # Convert to list of ndarrays (order is consistent)
-            client_params.append(arrays.to_numpy_ndarrays())
+            client_sds.append(arrays.to_torch_state_dict())
 
-        if client_params:
-            avg_params = _fedavg_ndarrays(client_params, client_weights)
-            global_arrays = ArrayRecord.from_numpy_ndarrays(avg_params)
-            
-        print(f"[ROUND {server_round}] selected={len(selected)} G={G}")
+        if client_sds:
+            avg_sd = fedavg_state_dict(client_sds, client_weights)
+            global_arrays = ArrayRecord.from_torch_state_dict(avg_sd)
+
+        print(f"[ROUND {server_round}] selected={len(selected)} G={G}")   
