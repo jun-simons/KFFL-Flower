@@ -1,5 +1,4 @@
-# src/kffl/app/client_app.py
-
+# src/kffl/app/client_app.p
 from __future__ import annotations
 from typing import Any, Dict
 
@@ -36,6 +35,10 @@ def fair1(msg: Message, context: Context) -> Message:
     - Compute local quantities needed for server to construct global fairness constraint G
     - Reply with serialized local terms
     """
+    
+    # TODO remove print
+    print(f"[CLIENT {context.node_id}] handling query.fair1")
+    
     arrays: ArrayRecord = msg.content["arrays"]
     _model = _load_model_from_arrays(arrays)
 
@@ -59,6 +62,10 @@ def train_kffl(msg: Message, context: Context) -> Message:
     - Update locally (you'll replace loss/grad with KFFL objective)
     - Reply with updated weights + metrics
     """
+    
+    # TODO remove print
+    print(f"[CLIENT {context.node_id}] handling train.kffl has_G={G is not None}")
+
     arrays: ArrayRecord = msg.content["arrays"]
     config: ConfigRecord = msg.content.get("config", ConfigRecord({}))
 

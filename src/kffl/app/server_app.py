@@ -1,7 +1,6 @@
 # src/kffl/app/server_app.py
-
 from __future__ import annotations
-from typing import Dict, Iterable, List, Tuple
+#from typing import Dict, Iterable, List, Tuple
 
 import random
 import numpy as np
@@ -16,16 +15,16 @@ from kffl.utils.serde import dumps, loads
 app = ServerApp()
 
 
-def _sample_nodes(node_ids: List[int], fraction: float, min_nodes: int) -> List[int]:
+def _sample_nodes(node_ids: list[int], fraction: float, min_nodes: int) -> list[int]:
     n = max(min_nodes, int(round(len(node_ids) * fraction)))
     n = min(n, len(node_ids))
     return random.sample(node_ids, n)
 
 
-def _fedavg(state_dicts: List[Dict[str, np.ndarray]], weights: List[int]) -> Dict[str, np.ndarray]:
-    """Very small FedAvg helper for numpy arrays."""
+def _fedavg(state_dicts: list[Dict[str, np.ndarray]], weights: list[int]) -> Dict[str, np.ndarray]:
+    """FedAvg helper for numpy arrays."""
     total = float(sum(weights))
-    out: Dict[str, np.ndarray] = {}
+    out: dict[str, np.ndarray] = {}
     for k in state_dicts[0].keys():
         acc = None
         for sd, w in zip(state_dicts, weights):
@@ -33,7 +32,6 @@ def _fedavg(state_dicts: List[Dict[str, np.ndarray]], weights: List[int]) -> Dic
             acc = term if acc is None else (acc + term)
         out[k] = acc
     return out
-
 
 @app.main()
 def main(grid: Grid, context: Context) -> None:
@@ -56,7 +54,7 @@ def main(grid: Grid, context: Context) -> None:
         selected = _sample_nodes(all_nodes, fraction_train, min_nodes)
 
         # ---- (1) FAIR1: query local terms ----
-        fair1_msgs: List[Message] = []
+        fair1_msgs: list[Message] = []
         for nid in selected:
             rd = RecordDict({"arrays": global_arrays})
             fair1_msgs.append(
@@ -90,7 +88,7 @@ def main(grid: Grid, context: Context) -> None:
             }
         )
 
-        train_msgs: List[Message] = []
+        train_msgs: list[Message] = []
         for nid in selected:
             rd = RecordDict({"arrays": global_arrays, "config": train_cfg})
             train_msgs.append(
@@ -105,20 +103,25 @@ def main(grid: Grid, context: Context) -> None:
         train_replies = list(grid.send_and_receive(train_msgs))
 
         # ---- (3) Aggregate (FedAvg stub) ----
-        client_state_dicts: List[Dict[str, np.ndarray]] = []
-        client_weights: List[int] = []
+        
+        client_params: list[list[np.ndarray]] = []
+        client_weights: list[int] = []
 
         for rep in train_replies:
             if not rep.has_content():
                 continue
+
             arrays: ArrayRecord = rep.content["arrays"]
             metrics = rep.content.get("metrics", None)
+
             n = int(metrics["num-examples"]) if metrics is not None and "num-examples" in metrics else 1
             client_weights.append(n)
-            client_state_dicts.append(arrays.to_numpy_ndarrays_dict())
 
-        if client_state_dicts:
-            new_sd = _fedavg(client_state_dicts, client_weights)
-            global_arrays = ArrayRecord.from_numpy_ndarrays_dict(new_sd)
+            # Convert to list of ndarrays (order is consistent)
+            client_params.append(arrays.to_numpy_ndarrays())
 
+        if client_params:
+            avg_params = _fedavg_ndarrays(client_params, client_weights)
+            global_arrays = ArrayRecord.from_numpy_ndarrays(avg_params)
+            
         print(f"[ROUND {server_round}] selected={len(selected)} G={G}")
