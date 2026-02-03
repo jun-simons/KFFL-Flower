@@ -71,25 +71,67 @@ def main(grid: Grid, context: Context) -> None:
 
         # ---- (1) FAIR1: query local terms ----
         fair1_msgs: list[Message] = []
-        
-        for nid in selected:
-           rd = RecordDict({"arrays": global_arrays})
-           fair1_msgs.append(
-               Message(
-                   content=rd,
-                   dst_node_id=nid,
-                   message_type=QUERY_FAIR1,
-                   group_id=str(server_round),
-               )
-           )
-        
-        fair1_replies = list(grid.send_and_receive(fair1_msgs))
-        local_terms = []
-        for rep in fair1_replies:
-            if rep.has_content() and "fair1" in rep.content:
-                cfg: ConfigRecord = rep.content["fair1"]
-                local_terms.append(loads(cfg["fair1_blob"]))
 
+        D = 1024
+        gamma_s = 0.5
+        gamma_f = 0.5
+        seed = 42
+
+        fair1_msgs: list[Message] = []
+        for nid in selected:
+            rd = RecordDict(
+                {
+                    "arrays": global_arrays, # model params
+                    "cfg": ConfigRecord( # RFM kernal parameters
+                        {"D": D, "gamma_s": gamma_s, "gamma_f": gamma_f, "seed": seed}
+                    )
+                }
+            )
+            fair1_msgs.append(
+                Message(
+                    content=rd,
+                    dst_node_id=nid,
+                    message_type=QUERY_FAIR1,
+                    group_id=str(server_round),
+                )
+            )
+
+        fair1_replies = list(grid.send_and_receive(fair1_msgs))
+
+        M_sum = np.zeros((D,D), dtype=np.float32)
+        mu_s_sum = np.zeros((D,), dtype=np.float32)
+        mu_f_sum = np.zeros((D,), dtype=np.float32)
+        n_total = 0
+        
+        for rep in fair1_replies:
+            if not rep.has_content():
+                continue
+            if "fair1" not in rep.content:
+                continue
+
+            fair_arr: ArrayRecord = rep.content["fair1"]
+            Mi, mu_s_i, mu_f_i = fair_add.to_numpy_ndarrays()
+
+            metrics = rep.content.get("metrics", None)
+            n_i = int(metrics["num-examples"]) if metrics is not None
+
+            Mi = Mi.astype(np.float32, copy=False)
+            mu_s_i = mu_s_i.astype(np.float32, copy=False)
+            mu_f_i = mu_f_i.astype(np.float32, copy=False)
+
+            M_sum += Mi
+            mu_s_sum += n_i * mu_s_i
+            mu_f_sum += n_i * mu_f_i
+            n_total += n_i
+
+        mu_s = mu_s_sum / max(n_total, 1)
+        mu_f = mu_f_sum / max(n_total, 1)
+        G = M_sum - float(n_total) * np.outer(mu_s, mu_f).astype(np.float32)
+        
+        # TODO test print remove
+        G_blob = {"D": D, "gamma_s": gamma_s, "gamma_f": gamma_f, "seed": seed}  # plus whatever you want
+        print(f"[ROUND {server_round}] FAIR1 n_total={n_total} ||G||={float(np.linalg.norm(G)):.4f}")
+            
         # TODO (paper): compute global fairness constraint G from local FAIR1 terms
         # Placeholder "G": just store how many clients contributed
         G = {"round": server_round, "num_clients": len(local_terms)}
