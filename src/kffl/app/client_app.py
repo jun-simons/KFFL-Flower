@@ -17,6 +17,7 @@ from flwr.clientapp import ClientApp
 from kffl.app.message_types import QUERY_FAIR1, TRAIN_KFFL
 from kffl.ml.task import TrainConfig, build_model, get_dataloaders, train_one_round
 from kffl.utils.serde import dumps, loads
+from kffl.fairness.kernel import orf_transform_1d
 
 app = ClientApp()
 
@@ -40,17 +41,49 @@ def fair1(msg: Message, context: Context) -> Message:
     print(f"[CLIENT {context.node_id}] handling query.fair1")
     
     arrays: ArrayRecord = msg.content["arrays"]
-    _model = _load_model_from_arrays(arrays)
+    model = _load_model_from_arrays(arrays)
 
-    # TODO (paper): compute RFF-based local statistics for fairness constraint
-    # Placeholder: pretend local_terms is a small tensor/vector
-    local_terms = {
-        "node_id": int(context.node_id),
-        "dummy_stat": float(context.node_id) * 0.1,
-    }
+    cfg: ConfigRecord = msg.content["cfg"]
+    D = int(cfg["D"])
+    gamma_s = float(cfg["gamma_s"])
+    gamma_f = float(cfg["gamma_f"])
+    seed = int(cfg["seed"])
 
-    cfg = ConfigRecord({"fair1_blob": dumps(local_terms)})
-    content = RecordDict({"fair1": cfg})
+    f, s = get_local_fs(split="train", for_fairness=True)
+    n_i = int(len(s))
+    if n_i == 0:
+        print("No sensitive feature defined in fair1")
+        content = RecordDict(
+            {
+                "fair1": ArrayRecord.from_numpy_ndarrays(
+                    [
+                        np.zeros((D, D), np.float32),
+                        np.zeros((D,), np.float32),
+                        np.zeros((D,), np.float32),
+                    ]
+                ),
+                "metrics": ConfigRecord({"num-examples": 0}),
+            }
+        )
+        return Message(content=content, reply_to=msg)
+
+    # --- ORFM feature maps ----
+    Zs = orf_transform_1d(s, D=D, gamma=gamma_s, seed=seed)
+    Zf = orf_transform_1d(f, D=D, gamma=gamma_f, seed=seed + 1)
+
+    Mi = (Zs.T @ Zf).astype(np.float32) # (D,D)
+    mu_s_i = Zs.mean(axis=0).astype(np.float32) #(D,)
+    mu_f_i = Zf.mean(axis=0).astype(np.float32) #(D,)
+
+    context.state["Mi"] = ArrayRecord.from_numpy_ndarrays([Mi])
+
+    content = RecordDict(
+        {
+            "fair1": ArrayRecord.from_numpy_ndarrays([Mi, mu_s_i, mu_f_i]),
+            "metrics": ConfigRecord({"num-examples": n_i}),
+        }
+    )
+
     return Message(content=content, reply_to=msg)
 
 
