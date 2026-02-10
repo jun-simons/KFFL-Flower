@@ -30,3 +30,31 @@ def orf_transform_1d(x: np.ndarray, D: int, gamma: float, seed: int) -> np.ndarr
     orf = _make_orf(D, gamma, seed)
     Z = orf.transform(x)
     return np.asarray(Z, dtype=np.float32)
+
+def orf_transform(X: np.ndarray, *, D: int, gamma: float, seed: int) -> np.ndarray:
+    """
+    Orthogonal Random Features for RBF kernel.
+    X: (n, d) float32/float64
+    returns Z: (n, D) float32
+    """
+    X = np.asarray(X)
+    if X.ndim == 1:
+        X = X.reshape(-1, 1)
+    X = X.astype(np.float32, copy=False)
+
+    d_in = X.shape[1]
+
+    rff = OrthogonalRandomFeature(
+        n_components=D,
+        gamma=gamma,
+        distribution="gaussian",
+        random_fourier=True, # RBF
+        use_offset=False, #cos/sin form 
+        random_state=seed,
+    )
+
+    # Fit only to set up weights for the correct input dimension
+    rff.fit(np.zeros((1, d_in), dtype=np.float32))
+
+    Z = rff.transform(X).astype(np.float32, copy=False)
+    return Z
