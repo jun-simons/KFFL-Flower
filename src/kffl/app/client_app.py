@@ -1,4 +1,4 @@
-# src/kffl/app/client_app.p
+# src/kffl/app/client_app.py
 from __future__ import annotations
 from typing import Any, Dict
 
@@ -18,6 +18,10 @@ from kffl.app.message_types import QUERY_FAIR1, TRAIN_KFFL
 from kffl.ml.task import TrainConfig, build_model, get_dataloaders, train_one_round
 from kffl.utils.serde import dumps, loads
 from kffl.fairness.kernel import orf_transform_1d
+
+from kffl.data.provider import get_client_loaders, DataConfig
+
+DATA_CFG = DataConfig(num_partitions=10, batch_size=64, fair_batch_size=512, seed=42)
 
 app = ClientApp()
 
@@ -43,13 +47,17 @@ def fair1(msg: Message, context: Context) -> Message:
     arrays: ArrayRecord = msg.content["arrays"]
     model = _load_model_from_arrays(arrays)
 
+    loaders = get_client_loaders(context, DATA_CFG)
+    fairloader = loaders.fairnessloader
+
+
     cfg: ConfigRecord = msg.content["cfg"]
     D = int(cfg["D"])
     gamma_s = float(cfg["gamma_s"])
     gamma_f = float(cfg["gamma_f"])
     seed = int(cfg["seed"])
 
-    f, s = get_local_fs(split="train", for_fairness=True)
+    f, s = get_local_fs(model, split="train", for_fairness=True, context=context)
     n_i = int(len(s))
     if n_i == 0:
         print("No sensitive feature defined in fair1")
@@ -100,13 +108,15 @@ def train_kffl(msg: Message, context: Context) -> Message:
 
     model = _load_model_from_arrays(arrays)
 
+    loaders = get_client_loaders(context, DATA_CFG)
+
     # Fairness constraint from server (serialized)
     fairness_blob = config.get("G_blob", None)
     G: Any = loads(fairness_blob) if fairness_blob is not None else None
 
     # TODO (paper): incorporate G into loss/gradient update
     # For now: normal SGD
-    trainloader, _ = get_dataloaders(context.node_id, batch_size=int(config.get("batch_size", 64)))
+    trainloader = loaders.trainloader
     train_cfg = TrainConfig(
         lr=float(config.get("lr", 0.01)),
         local_epochs=int(config.get("local_epochs", 1)),
@@ -115,9 +125,8 @@ def train_kffl(msg: Message, context: Context) -> Message:
     train_loss = train_one_round(model, trainloader, train_cfg)
 
     reply_arrays = ArrayRecord(model.state_dict())
-    metrics = MetricRecord(
+    metrics = MetricRecord( 
         {
-            "train_loss": float(train_loss),
             "num-examples": len(trainloader.dataset),
             "has_G": 1.0 if G is not None else 0.0,
         }
