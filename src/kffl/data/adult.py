@@ -166,7 +166,7 @@ def load_adult_client_loaders(
     context,
     num_partitions: int,
     partitioner,
-    batch_size: int = 128,
+    batch_size: int = 64,
     fair_batch_size: int = 512,
     seed: int = 42,
 ) -> AdultClientLoaders:
