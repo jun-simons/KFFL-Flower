@@ -17,7 +17,7 @@ from flwr.clientapp import ClientApp
 from kffl.app.message_types import QUERY_FAIR1, TRAIN_KFFL
 from kffl.ml.task import TrainConfig, build_model, get_dataloaders, train_one_round
 from kffl.utils.serde import dumps, loads
-from kffl.fairness.kernel import orf_transform_1d
+from kffl.fairness.kernel import orf_transform
 
 from kffl.data.provider import get_client_loaders, DataConfig
 
@@ -76,8 +76,8 @@ def fair1(msg: Message, context: Context) -> Message:
         return Message(content=content, reply_to=msg)
 
     # --- ORFM feature maps ----
-    Zs = orf_transform_1d(s, D=D, gamma=gamma_s, seed=seed)
-    Zf = orf_transform_1d(f, D=D, gamma=gamma_f, seed=seed + 1)
+    Zs = orf_transform(s, D=D, gamma=gamma_s, seed=seed)
+    Zf = orf_transform(f, D=D, gamma=gamma_f, seed=seed + 1)
 
     Mi = (Zs.T @ Zf).astype(np.float32) # (D,D)
     mu_s_i = Zs.mean(axis=0).astype(np.float32) #(D,)
