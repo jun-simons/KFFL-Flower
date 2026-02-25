@@ -113,7 +113,7 @@ def main(grid: Grid, context: Context) -> None:
             Mi, mu_s_i, mu_f_i = fair_add.to_numpy_ndarrays()
 
             metrics = rep.content.get("metrics", None)
-            n_i = int(metrics["num-examples"]) if metrics is not None
+            n_i = int(metrics["num-examples"])
 
             Mi = Mi.astype(np.float32, copy=False)
             mu_s_i = mu_s_i.astype(np.float32, copy=False)
@@ -129,7 +129,7 @@ def main(grid: Grid, context: Context) -> None:
         G = M_sum - float(n_total) * np.outer(mu_s, mu_f).astype(np.float32)
         
         # TODO test print remove
-        G_blob = {"D": D, "gamma_s": gamma_s, "gamma_f": gamma_f, "seed": seed}  # plus whatever you want
+        G_blob = {"D": D, "gamma_s": gamma_s, "gamma_f": gamma_f, "seed": seed} 
         print(f"[ROUND {server_round}] FAIR1 n_total={n_total} ||G||={float(np.linalg.norm(G)):.4f}")
             
         # TODO (paper): compute global fairness constraint G from local FAIR1 terms

@@ -18,6 +18,7 @@ from kffl.app.message_types import QUERY_FAIR1, TRAIN_KFFL
 from kffl.ml.task import TrainConfig, build_model, get_dataloaders, train_one_round
 from kffl.utils.serde import dumps, loads
 from kffl.fairness.kernel import orf_transform
+from kffl.fairness.local_terms import get_local_fs
 
 from kffl.data.provider import get_client_loaders, DataConfig
 
@@ -57,7 +58,7 @@ def fair1(msg: Message, context: Context) -> Message:
     gamma_f = float(cfg["gamma_f"])
     seed = int(cfg["seed"])
 
-    f, s = get_local_fs(model, split="train", for_fairness=True, context=context)
+    f, s = get_local_fs(model, fairloader, cfg=FSConfig(max_examples=None))
     n_i = int(len(s))
     if n_i == 0:
         print("No sensitive feature defined in fair1")
