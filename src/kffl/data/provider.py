@@ -10,6 +10,7 @@ from kffl.data.adult import load_adult_client_loaders, AdultClientLoaders
 
 @dataclass(frozen=True)
 class DataConfig:
+    # TODO: probably want some of these passsed in configrecord
     num_partitions: int
     batch_size: int = 64
     fair_batch_size: int = 512

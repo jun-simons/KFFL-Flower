@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Optional, Dict, Any
+from typing import Optional, Dict, Any, Tuple
 
 import numpy as np
 import pandas as pd
@@ -20,11 +20,12 @@ SENSITIVE_SEX_COL = "is_male"      # bool
 CONTINUOUS_COLS = ["age", "capital_gain", "capital_loss", "hours_worked_per_week"]
 # Everything else (excluding sensitive+target+continuous) treated as categorical for x_main
 
+_LOADER_CACHE: dict[Tuple[int, int, int, int], AdultClientLoaders] = {}
 
 @dataclass(frozen=True)
 class AdultArtifacts:
-    x_pre: ColumnTransformer        # builds x_main
-    race_pre: OneHotEncoder         # builds race one-hot for s
+    x_pre: ColumnTransformer # builds x_main
+    race_pre: OneHotEncoder # builds race one-hot for s
     x_main_dim: int
     s_dim: int
 
@@ -166,16 +167,17 @@ def load_adult_client_loaders(
     context,
     num_partitions: int,
     partitioner,
-    batch_size: int = 64,
+    batch_size: int = 128,
     fair_batch_size: int = 512,
     seed: int = 42,
 ) -> AdultClientLoaders:
     pid = int(context.node_config["partition-id"])
-    cache_key = f"adult::{pid}::{batch_size}::{fair_batch_size}::{seed}"
+    cache_key = (pid, batch_size, fair_batch_size, seed)
 
-    if cache_key in context.state:
-        return context.state[cache_key]
-
+    cached = _LOADER_CACHE.get(cache_key)
+    if cached is not None:
+        return cached    
+    
     fds = _get_fds(partitioner=partitioner)
     part = fds.load_partition(pid, split="train")
 
@@ -210,5 +212,5 @@ def load_adult_client_loaders(
     )
     
     out = AdultClientLoaders(trainloader=trainloader, testloader=testloader, fairnessloader=fairnessloader, artifacts=_ART)
-    context.state[cache_key] = out
+    _LOADER_CACHE[cache_key] = out
     return out
