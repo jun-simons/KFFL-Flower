@@ -78,7 +78,7 @@ def _collect_data(loader: DataLoader, device: torch.device):
 
 
 # ---------------------------------------------------------------------------
-# FAIR1 kernel computation  (pure function — no Flower dependency)
+# FAIR1 kernel computation
 # ---------------------------------------------------------------------------
 
 
@@ -123,7 +123,7 @@ def _compute_fair1_stats(
 
 
 # ---------------------------------------------------------------------------
-# FAIR2 gradient computation  (pure function — no Flower dependency)
+# FAIR2 gradient computation 
 # ---------------------------------------------------------------------------
 
 
@@ -147,7 +147,7 @@ def _compute_fair2_gradient(
 
     with respect to model parameters ω, where
 
-        Ωᵢ(ω) = Mᵢ(ω) − nᵢ · µ_s · µ_fᵀ                    (eq. 15)
+        Ωᵢ(ω) = Mᵢ(ω) - nᵢ · µ_s · µ_fᵀ                    (eq. 15)
         Mᵢ(ω)  = Z_{S,i}ᵀ Z_{f,i}(ω)                          (eq. 14)
 
     Here µ_s and µ_f are the **global** aggregated means from the server
