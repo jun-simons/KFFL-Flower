@@ -201,17 +201,22 @@ def main(grid: Grid, context: Context) -> None:
 
         grad_norm = float(np.sqrt(sum(np.sum(g ** 2) for g in sum_grad)))
 
-        # ω_{t+1/2} = ω_t − η · λ · Σᵢ gᵢ
+        # HSIC = (1/n²)||G||²_F, so ∇HSIC = (2/n²)·Σᵢ gᵢ.
+        # ω_{t+1/2} = ω_t − η · λ · ∇HSIC = ω_t − η · λ · (2/n²) · Σᵢ gᵢ
+        hsic_scale = 2.0 / max(total_n, 1) ** 2
         omega_half_weights = [
-            w - step_size * lambda_fair * g
+            w - step_size * lambda_fair * hsic_scale * g
             for w, g in zip(get_weights(model), sum_grad)
         ]
 
+        scaled_grad_norm = float(np.sqrt(sum(
+            np.sum((hsic_scale * g) ** 2) for g in sum_grad
+        )))
         half_norm = float(np.sqrt(sum(np.sum(w ** 2) for w in omega_half_weights)))
         logger.log(
             INFO,
-            "[Server] FAIR2: n_valid=%d  ||Σgᵢ||=%.4f  ||ω_{t+1/2}||=%.4f",
-            n_valid, grad_norm, half_norm,
+            "[Server] FAIR2: n_valid=%d  ||∇HSIC||=%.6f  hsic_scale=%.2e  ||ω_{t+1/2}||=%.4f",
+            n_valid, scaled_grad_norm, hsic_scale, half_norm,
         )
 
         # ------------------------------------------------------------------ #

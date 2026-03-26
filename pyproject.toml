@@ -45,13 +45,13 @@ clientapp = "kffl.app.client_app:app"
 
 [tool.flwr.app.config]
 # Number of full KFFL iterations (each iteration = 3 message rounds)
-num-server-rounds = 3
+num-server-rounds = 10
 # Dimension of the random feature maps (D)
-num-random-features = 16
+num-random-features = 64
 # Step size for the proximal gradient update
 step-size = 0.01
 # Fairness regularization weight
-lambda = 1.0
+lambda = 50000.0
 # RBF kernel bandwidth for sensitive-attribute ORF
 gamma-s = 1.0
 # RBF kernel bandwidth for model-prediction ORF
