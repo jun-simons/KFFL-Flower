@@ -5,7 +5,7 @@ Architecture:
   Binary case uses BCEWithLogitsLoss; multiclass uses CrossEntropyLoss.
 
 Training:
-  ``train()`` runs SGD (or Adam) for a configurable number of local epochs,
+  ``train()`` runs Adam for a configurable number of local epochs,
   optionally adding a proximal penalty  (μ/2)·‖ω − ω_center‖² that pulls the
   model toward the half-step ω_{t+1/2} received from the server (eq. 21).
 """
@@ -168,7 +168,7 @@ def train(
     criterion: nn.Module = (
         nn.BCEWithLogitsLoss() if model._binary else nn.CrossEntropyLoss()
     )
-    optimizer = torch.optim.SGD(
+    optimizer = torch.optim.Adam(
         model.parameters(), lr=lr, weight_decay=weight_decay
     )
 
