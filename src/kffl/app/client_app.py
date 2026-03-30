@@ -44,8 +44,20 @@ def _load_partition(context: Context) -> DataLoader:
     num_partitions = int(context.run_config.get("num-partitions", 5))
     partition_id = int(context.node_config.get("partition-id", 0))
     batch_size = int(context.run_config.get("batch-size", 64))
+
+    # Optional comma-separated list of sensitive feature names, e.g. "sex" or "sex,race"
+    sens_raw = context.run_config.get("sensitive-features", None)
+    sensitive_features = (
+        [s.strip() for s in str(sens_raw).split(",") if s.strip()]
+        if sens_raw is not None
+        else None   # use dataset-specific default
+    )
+
     loaders = get_federated_loaders(
-        dataset, num_partitions=num_partitions, batch_size=batch_size
+        dataset,
+        num_partitions=num_partitions,
+        batch_size=batch_size,
+        sensitive_features=sensitive_features,
     )
     return loaders[partition_id]
 

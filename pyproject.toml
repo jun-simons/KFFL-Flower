@@ -45,19 +45,21 @@ clientapp = "kffl.app.client_app:app"
 
 [tool.flwr.app.config]
 # Number of full KFFL iterations (each iteration = 3 message rounds)
-num-server-rounds = 10
+num-server-rounds = 20
 # Dimension of the random feature maps (D)
 num-random-features = 64
 # Step size for the proximal gradient update
 step-size = 0.01
 # Fairness regularization weight
-lambda = 10000.0
+lambda = 20000.0
 # RBF kernel bandwidth for sensitive-attribute ORF
 gamma-s = 1.0
 # RBF kernel bandwidth for model-prediction ORF
 gamma-f = 1.0
 # Dataset to federate (must be a key in kffl.data._DATASET_REGISTRY)
 dataset = "adult"
+# Comma-separated sensitive attribute column names (default: dataset-specific, e.g. "sex,race")
+sensitive-features = "sex"
 # Model architecture (must be a key in kffl.ml._MODEL_REGISTRY)
 model = "logistic"
 # Number of output classes for the model

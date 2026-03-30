@@ -98,9 +98,18 @@ def main(grid: Grid, context: Context) -> None:
     proximal_alpha: float = float(context.run_config.get("proximal-alpha", 1.0))
     num_local_epochs: int = int(context.run_config.get("num-local-epochs", 1))
 
+    # Optional comma-separated sensitive feature names (e.g. "sex" or "sex,race")
+    sens_raw = context.run_config.get("sensitive-features", None)
+    sensitive_features = (
+        [s.strip() for s in str(sens_raw).split(",") if s.strip()]
+        if sens_raw is not None
+        else None   # use dataset-specific default
+    )
+
     # --- Derive input_dim from one sample batch ---
     sample_loader = get_federated_loaders(
-        dataset_name, num_partitions=num_partitions, batch_size=1
+        dataset_name, num_partitions=num_partitions, batch_size=1,
+        sensitive_features=sensitive_features,
     )[0]
     X_sample, _, _ = next(iter(sample_loader))
     input_dim: int = X_sample.shape[1]
