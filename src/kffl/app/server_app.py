@@ -178,7 +178,7 @@ def main(grid: Grid, context: Context) -> None:
         )
 
         # ------------------------------------------------------------------ #
-        # FAIR2: collect local fairness gradients                             #
+        # FAIR2: collect local fairness gradients                            #
         # ------------------------------------------------------------------ #
         fair2_content = RecordDict({
             "config": model_cfg,
