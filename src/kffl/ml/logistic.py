@@ -63,7 +63,7 @@ class LogisticRegression(nn.Module):
         return out.squeeze(1) if self._binary else out
 
     def predict_proba(self, x: torch.Tensor) -> torch.Tensor:
-        """Return probabilities (no gradient).
+        """Return probabilities (no gradient)
 
         Returns
         -------
@@ -79,7 +79,7 @@ class LogisticRegression(nn.Module):
 
         Unlike ``predict_proba``, this method does not disable gradient
         computation so the result can be used as an intermediate in an
-        autograd graph.
+        autograd graph
 
         Returns
         -------

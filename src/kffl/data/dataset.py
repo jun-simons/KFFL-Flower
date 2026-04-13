@@ -38,6 +38,7 @@ from .adult import DatasetBundle
 _DATASET_REGISTRY: Dict[str, str] = {
     "adult": "kffl.data.adult",
     "toy": "kffl.data.toy",
+    "no_sensitive": "kffl.data.no_sensitive",
 }
 
 

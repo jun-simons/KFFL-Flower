@@ -229,7 +229,7 @@ def main(grid: Grid, context: Context) -> None:
         )
 
         # ------------------------------------------------------------------ #
-        # Local Update: clients perform proximal gradient step (stub)         #
+        # Local Update: clients perform proximal gradient step       #
         # ------------------------------------------------------------------ #
         local_cfg = ConfigRecord({
             "round_num": t,
