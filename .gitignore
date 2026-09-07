@@ -1,0 +1,9 @@
+__pycache__/
+*.py[cod]
+*.egg-info/
+build/
+dist/
+data/*.npz
+data/adult/*.npz
+results/*.tmp.json
+.DS_Store

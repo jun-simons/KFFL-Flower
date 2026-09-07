@@ -1,0 +1,94 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "kffl-flower"
+version = "0.1.0"
+description = "KFFL - Group Fair Federated Learning via Stochastic Kernel Regularization (Flower Message API)"
+license = "Apache-2.0"
+requires-python = ">=3.10"
+dependencies = [
+    "flwr[simulation]>=1.26.0",
+    "torch>=2.4",
+    "numpy>=1.26",
+    "pandas>=2.0",
+    "scikit-learn>=1.4",
+]
+
+[tool.hatch.build.targets.wheel]
+packages = ["kffl"]
+
+[tool.flwr.app]
+publisher = "kffl"
+
+[tool.flwr.app.components]
+serverapp = "kffl.server_app:app"
+clientapp = "kffl.client_app:app"
+
+# ---------------------------------------------------------------------------
+# Run configuration.  Every knob the experiments need lives here; override on
+# the command line with e.g.
+#   flwr run . --run-config "fairness-lambda=500.0 partition='non-iid'"
+# ---------------------------------------------------------------------------
+[tool.flwr.app.config]
+
+# --- algorithm -------------------------------------------------------------
+# "kffl"   : Algorithms 2 & 3 (FAIR1 / FAIR2 / Local Update), 3 rounds per iter
+# "fedavg" : McMahan et al. (2017) baseline, 1 round per iter (lambda ignored)
+algorithm = "kffl"
+
+# --- data (Appendix B.2 / B.3) --------------------------------------------
+dataset = "adult"
+sensitive-attribute = "sex"           # ADULT protected attribute (App. B.2)
+partition = "iid"                     # "iid" | "non-iid"
+non-iid-majority = 0.9                # App. B.3: 90% / 10% split of A_0, A_1
+non-iid-mode = "exact-ratio"          # "exact-ratio" | "use-all"  (see partition.py)
+exclude-sensitive-from-features = true
+
+# --- model / task (Appendix B.4) ------------------------------------------
+model = "logistic-regression"         # "logistic-regression" | "mlp"
+task = "classification"               # "classification" | "regression"
+
+# --- optimisation (Appendix B.1) ------------------------------------------
+num-server-rounds = 10                # 10 global rounds
+local-epochs = 5                      # 5 local epochs per round
+batch-size = 64
+local-lr = 0.01                       # Adam learning rate
+local-optimizer = "adam"              # "adam" | "sgd"
+alpha = 0.01                          # FedProxGrad step size (Algorithm 1)
+# Algorithm 1 line 5 pairs the global step with a 1/(2*alpha) proximal weight,
+# i.e. 50 at alpha = 0.01 -- far too strong to train in 10 rounds (see README).
+# Set -1 for that literal coupling, 0 to drop the proximal term altogether.
+prox-mu = 0.01
+aggregation = "uniform"               # "uniform" (Alg. 1 line 7) | "weighted" (Alg. 5 line 25)
+
+# --- fairness regulariser (KHSIC + RFM) -----------------------------------
+fairness-lambda = 0.0                 # lambda in Eq. (10)
+rfm-dim = 10                          # D (App. B.1)
+rfm-kind = "orf"                      # "orf" (Yu et al. 2016) | "rff" (Rahimi & Recht 2007)
+kernel-gamma-s = 1.0                  # RBF gamma for kappa_G on s   (NOT given in the paper)
+kernel-gamma-f = 1.0                  # RBF gamma for kappa_F on f(x;w) (NOT given in the paper)
+rfm-resample = "per-round"            # "per-round" (Alg. 3 line 5) | "once" (App. G text)
+fairness-output = "logit"             # "logit" (App. G) | "prob"
+sensitive-encoding = "one-hot"        # "one-hot" | "raw"
+
+# --- fidelity switches for the paper's internal contradictions ------------
+# See README "Deviations from the paper" for why the defaults are what they are.
+psi-normalization = "n-minus-1-sq"    # Eq. (9) / App. A.6 | "none" (Eqs. 13-16 literal)
+omega-variant = "exact"               # Lemma 2 exact | "paper-literal" (Eq. 15 as written)
+# Alg. 3 line 14 prints `w_{t+1/2} <- w_t - sum_i g^i`, i.e. step size 1, while
+# Alg. 1 line 3 has `- alpha g_t`.  Only the former makes Appendix B.5's lambda
+# grid land on the trade-off curve of Figure 3, so it is the default; set -1 to
+# use `alpha` instead (which just rescales lambda by 1/alpha).
+fairness-step-size = 1.0
+
+# --- misc ------------------------------------------------------------------
+seed = 0
+results-path = "results/run.json"
+
+[tool.flwr.federations]
+default = "local-simulation"
+
+[tool.flwr.federations.local-simulation]
+options.num-supernodes = 4            # m = 4 clients (App. B.1)
