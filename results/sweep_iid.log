@@ -1,0 +1,44 @@
+--- lambda=0          algorithm="kffl" dataset="adult" partition="iid" seed=0 fairness-lambda=0.0 results-path="results/sweep_kffl_adult_iid_s0.tmp.json"
+    -> accuracy=0.8536  spd=0.1675  eo=0.0648
+--- lambda=20         algorithm="kffl" dataset="adult" partition="iid" seed=0 fairness-lambda=20.0 results-path="results/sweep_kffl_adult_iid_s0.tmp.json"
+    -> accuracy=0.8538  spd=0.1644  eo=0.0514
+--- lambda=71.58      algorithm="kffl" dataset="adult" partition="iid" seed=0 fairness-lambda=71.57894736842105 results-path="results/sweep_kffl_adult_iid_s0.tmp.json"
+    -> accuracy=0.8534  spd=0.1534  eo=0.0192
+--- lambda=123.2      algorithm="kffl" dataset="adult" partition="iid" seed=0 fairness-lambda=123.15789473684211 results-path="results/sweep_kffl_adult_iid_s0.tmp.json"
+    -> accuracy=0.8518  spd=0.1397  eo=-0.0098
+--- lambda=174.7      algorithm="kffl" dataset="adult" partition="iid" seed=0 fairness-lambda=174.73684210526318 results-path="results/sweep_kffl_adult_iid_s0.tmp.json"
+    -> accuracy=0.8504  spd=0.1269  eo=-0.0379
+--- lambda=226.3      algorithm="kffl" dataset="adult" partition="iid" seed=0 fairness-lambda=226.31578947368422 results-path="results/sweep_kffl_adult_iid_s0.tmp.json"
+    -> accuracy=0.8486  spd=0.1170  eo=-0.0566
+--- lambda=277.9      algorithm="kffl" dataset="adult" partition="iid" seed=0 fairness-lambda=277.89473684210526 results-path="results/sweep_kffl_adult_iid_s0.tmp.json"
+    -> accuracy=0.8468  spd=0.1053  eo=-0.0870
+--- lambda=329.5      algorithm="kffl" dataset="adult" partition="iid" seed=0 fairness-lambda=329.47368421052636 results-path="results/sweep_kffl_adult_iid_s0.tmp.json"
+    -> accuracy=0.8455  spd=0.0980  eo=-0.0976
+--- lambda=381.1      algorithm="kffl" dataset="adult" partition="iid" seed=0 fairness-lambda=381.0526315789474 results-path="results/sweep_kffl_adult_iid_s0.tmp.json"
+    -> accuracy=0.8442  spd=0.0895  eo=-0.1197
+--- lambda=432.6      algorithm="kffl" dataset="adult" partition="iid" seed=0 fairness-lambda=432.63157894736844 results-path="results/sweep_kffl_adult_iid_s0.tmp.json"
+    -> accuracy=0.8436  spd=0.0860  eo=-0.1285
+--- lambda=484.2      algorithm="kffl" dataset="adult" partition="iid" seed=0 fairness-lambda=484.2105263157895 results-path="results/sweep_kffl_adult_iid_s0.tmp.json"
+    -> accuracy=0.8430  spd=0.0838  eo=-0.1308
+--- lambda=535.8      algorithm="kffl" dataset="adult" partition="iid" seed=0 fairness-lambda=535.7894736842105 results-path="results/sweep_kffl_adult_iid_s0.tmp.json"
+    -> accuracy=0.8426  spd=0.0811  eo=-0.1345
+--- lambda=587.4      algorithm="kffl" dataset="adult" partition="iid" seed=0 fairness-lambda=587.3684210526316 results-path="results/sweep_kffl_adult_iid_s0.tmp.json"
+    -> accuracy=0.8425  spd=0.0832  eo=-0.1300
+--- lambda=638.9      algorithm="kffl" dataset="adult" partition="iid" seed=0 fairness-lambda=638.9473684210527 results-path="results/sweep_kffl_adult_iid_s0.tmp.json"
+    -> accuracy=0.8433  spd=0.0906  eo=-0.1081
+--- lambda=690.5      algorithm="kffl" dataset="adult" partition="iid" seed=0 fairness-lambda=690.5263157894738 results-path="results/sweep_kffl_adult_iid_s0.tmp.json"
+    -> accuracy=0.8412  spd=0.0835  eo=-0.1230
+--- lambda=742.1      algorithm="kffl" dataset="adult" partition="iid" seed=0 fairness-lambda=742.1052631578948 results-path="results/sweep_kffl_adult_iid_s0.tmp.json"
+    -> accuracy=0.8399  spd=0.0716  eo=-0.1499
+--- lambda=793.7      algorithm="kffl" dataset="adult" partition="iid" seed=0 fairness-lambda=793.6842105263158 results-path="results/sweep_kffl_adult_iid_s0.tmp.json"
+    -> accuracy=0.8388  spd=0.0615  eo=-0.1739
+--- lambda=845.3      algorithm="kffl" dataset="adult" partition="iid" seed=0 fairness-lambda=845.2631578947369 results-path="results/sweep_kffl_adult_iid_s0.tmp.json"
+    -> accuracy=0.8369  spd=0.0564  eo=-0.1843
+--- lambda=896.8      algorithm="kffl" dataset="adult" partition="iid" seed=0 fairness-lambda=896.8421052631579 results-path="results/sweep_kffl_adult_iid_s0.tmp.json"
+    -> accuracy=0.8344  spd=0.0498  eo=-0.1896
+--- lambda=948.4      algorithm="kffl" dataset="adult" partition="iid" seed=0 fairness-lambda=948.421052631579 results-path="results/sweep_kffl_adult_iid_s0.tmp.json"
+    -> accuracy=0.8264  spd=0.0859  eo=-0.1040
+--- lambda=1000       algorithm="kffl" dataset="adult" partition="iid" seed=0 fairness-lambda=1000.0 results-path="results/sweep_kffl_adult_iid_s0.tmp.json"
+    -> accuracy=0.8216  spd=0.0260  eo=-0.2229
+
+wrote results/sweep_kffl_adult_iid_s0.csv
