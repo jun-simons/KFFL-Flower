@@ -6,9 +6,6 @@ Definition 3 only requires the solver to return a gamma-suboptimal point, so
 the paper's choice of solver is a hyperparameter: Appendix B.1 specifies Adam,
 learning rate 0.01, 5 local epochs, batch size 64.
 
-(The "Equations used in KFFL" box states this as Eq. 21 with the proximal
-centre ``w_t`` and the objective evaluated at ``w_t``; both are typos -
-Algorithm 1 line 5 and Definition 3 give the form implemented here.)
 """
 
 from __future__ import annotations
@@ -32,10 +29,11 @@ def solve_local(
     prox_mu: float = 0.0,
     generator: torch.Generator | None = None,
 ) -> float:
-    """Minimise ``l^i(w) + prox_mu * ||w - w_center||^2`` in place.
+    """Minimise ``l^i(w) + prox_mu * ||w - w_center||^2`` in place
 
     ``model`` must already hold ``w_{t+1/2}``, which is also taken as the
-    proximal centre.  Returns the mean data-fitting loss over the last epoch.
+    proximal center, 
+    Returns the mean data-fitting loss over the last epoch
     """
     try:
         opt_cls = _OPTIMIZERS[optimizer]
@@ -45,7 +43,7 @@ def solve_local(
         ) from None
 
     params = list(model.parameters())
-    # w_{t+1/2}: detached copy of the incoming model, held fixed for the round.
+    # w_{t+1/2}: detached copy of the incoming model, held fixed for the round
     center = [p.detach().clone() for p in params]
     opt = opt_cls(params, lr=lr)
 
