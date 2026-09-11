@@ -70,7 +70,7 @@ num-partitions = 4
 # Batch size for local DataLoaders
 batch-size = 64
 # Proximal step-size α for local update: L = f_i(ω) + (1/2α)||ω − ω_{t+1/2}||²
-proximal-alpha = 0.01
+proximal-alpha = 20 # 0.01
 # Number of local Adam epochs per KFFL round
 num-local-epochs = 5
 
