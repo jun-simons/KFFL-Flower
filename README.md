@@ -19,7 +19,7 @@ kffl/
 └── utils/            RecordDict <-> tensor helpers
 ```
 
-Everything is selected from `pyproject.toml`, so you can swap the dataset or model
+Everything is configurerd in `pyproject.toml`, so you can swap the dataset or model
 config key here. Add a loader to `kffl/dataset/__init__.py::LOADERS` or a model to
 `kffl/ml/models.py::MODELS` to extend either registry.
 
@@ -37,12 +37,6 @@ Sweep the fairness weight over the Appendix B.5 grid and write a CSV:
 
 ```bash
 PYTHONPATH=. python scripts/sweep.py --partition iid
-```
-
-Check the paper's decompositions against their centralised definitions:
-
-```bash
-PYTHONPATH=. python scripts/verify_lemmas.py
 ```
 
 ## Protocol

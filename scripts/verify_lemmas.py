@@ -1,5 +1,8 @@
 """Check the federated decompositions against their centralised definitions.
 
+
+(note this code was generated to sanity check some lemmas)
+
 On a small synthetic problem, verifies:
 
   Lemma 1   sum_i M^i - n mu_s mu_f^T  ==  Z_s^T H Z_f                (Eq. 13)
