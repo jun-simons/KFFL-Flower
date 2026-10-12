@@ -50,11 +50,25 @@ MODELS = {
 }
 
 
-def build_model(name: str, num_features: int) -> nn.Module:
+def build_model(name: str, num_features: int, init: str = "default") -> nn.Module:
+    """Construct a model; ``init="zeros"`` zeroes every parameter.
+
+    The paper never specifies the initial model ``w_0``.  For the linear models,
+    zeros make ``f(X; w_0)`` constant, so the predictions carry no information
+    about ``s``, ``G(w_0) = 0``, and the first fairness step vanishes instead of
+    being taken on an arbitrary random model.  Do not use it for the MLP: zero
+    hidden weights receive no gradient.
+    """
     try:
         cls = MODELS[name]
     except KeyError:
         raise ValueError(
             f"unknown model {name!r}; available: {sorted(MODELS)}"
         ) from None
-    return cls(num_features)
+    model = cls(num_features)
+    if init == "zeros":
+        for param in model.parameters():
+            nn.init.zeros_(param)
+    elif init != "default":
+        raise ValueError(f"unknown model init {init!r}; use 'default' or 'zeros'")
+    return model

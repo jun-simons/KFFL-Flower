@@ -7,3 +7,5 @@ data/*.npz
 data/adult/*.npz
 results/*.tmp.json
 .DS_Store
+data/compas/*.npz
+results/.runs/

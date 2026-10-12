@@ -39,8 +39,9 @@ clientapp = "kffl.client_app:app"
 algorithm = "kffl"
 
 # --- data (Appendix B.2 / B.3) --------------------------------------------
-dataset = "adult"
-sensitive-attribute = "sex"           # ADULT protected attribute (App. B.2)
+dataset = "adult"                     # "adult" | "compas"
+# ADULT: "sex".  COMPAS: "african-american" (K=2) | "race-sex" (K=4) | "race" (K=6)
+sensitive-attribute = "sex"
 partition = "iid"                     # "iid" | "non-iid"
 non-iid-majority = 0.9                # App. B.3: 90% / 10% split of A_0, A_1
 non-iid-mode = "exact-ratio"          # "exact-ratio" | "use-all"  (see partition.py)
@@ -48,6 +49,10 @@ exclude-sensitive-from-features = true
 
 # --- model / task (Appendix B.4) ------------------------------------------
 model = "logistic-regression"         # "logistic-regression" | "mlp"
+# Initial model w_0, which the paper does not specify.  "default" is PyTorch's
+# random init; "zeros" (linear models only) gives G(w_0) = 0, so no fairness step
+# is taken on an untrained model.  See README.
+model-init = "default"
 task = "classification"               # "classification" | "regression"
 
 # --- optimisation (Appendix B.1) ------------------------------------------
@@ -65,13 +70,18 @@ aggregation = "uniform"               # "uniform" (Alg. 1 line 7) | "weighted" (
 
 # --- fairness regulariser (KHSIC + RFM) -----------------------------------
 fairness-lambda = 0.0                 # lambda in Eq. (10)
-rfm-dim = 10                          # D (App. B.1)
+rfm-dim = 10                          # D (App. B.1); Sec. 6.5 uses 16 for K=4, 24 for K=6
 rfm-kind = "orf"                      # "orf" (Yu et al. 2016) | "rff" (Rahimi & Recht 2007)
 kernel-gamma-s = 1.0                  # RBF gamma for kappa_G on s   (NOT given in the paper)
 kernel-gamma-f = 1.0                  # RBF gamma for kappa_F on f(x;w) (NOT given in the paper)
 rfm-resample = "per-round"            # "per-round" (Alg. 3 line 5) | "once" (App. G text)
 fairness-output = "logit"             # "logit" (App. G) | "prob"
 sensitive-encoding = "one-hot"        # "one-hot" | "raw"
+# Extension beyond the paper: the label-conditional KHSIC, which penalises
+# dependence between f(x; w) and s *within* each label y (equalised odds) instead
+# of overall (statistical parity).  Needs discrete labels.
+khsic-conditioning = "none"           # "none" (paper) | "label"
+khsic-stratum-weights = "prevalence"  # w_y: "prevalence" (n_y / n) | "uniform" (1 / C)
 
 # --- fidelity switches for the paper's internal contradictions ------------
 # See README "Deviations from the paper" for why the defaults are what they are.

@@ -29,7 +29,13 @@ from flwr.serverapp import Grid, ServerApp
 
 from kffl.config import KFFLConfig
 from kffl.dataset import get_dataset
-from kffl.fairness.khsic import LocalTerms, global_interaction, psi_scale, psi_value
+from kffl.fairness.khsic import (
+    LocalTerms,
+    global_interaction,
+    psi_values,
+    stratum_scales,
+    stratum_weights,
+)
 from kffl.fairness.metrics import classification_report, regression_report
 from kffl.ml import build_model
 from kffl.utils import record_to_state, state_to_record, tensors_to_record
@@ -46,7 +52,7 @@ def main(grid: Grid, context: Context) -> None:
     ds = get_dataset(
         cfg.dataset, cfg.sensitive_attribute, cfg.exclude_sensitive_from_features
     )
-    model = build_model(cfg.model, ds.num_features)
+    model = build_model(cfg.model, ds.num_features, cfg.model_init)
     weights = {k: v.clone() for k, v in model.state_dict().items()}  # w_0
 
     # App. G: with rfm-resample="once" the features are drawn a single time and
@@ -68,21 +74,29 @@ def main(grid: Grid, context: Context) -> None:
 
             # ---- FAIR1: collect Phi^i(w_t), assemble G(w_t) ------------------
             terms = _fair1(grid, node_ids, weights, zeta, t)
-            G, mu_s, mu_f, n = global_interaction(terms)
-            record["psi"] = psi_value(G, n, cfg.psi_normalization)
-            record["n"] = n
+            G, mu_s, mu_f, n = global_interaction(terms)  # one G_y per stratum
+            psi_y = psi_values(G, n, cfg.psi_normalization)
+            w_y = stratum_weights(n, cfg.khsic_stratum_weights)
+            record["psi"] = float((w_y * psi_y).sum())
+            if len(psi_y) > 1:
+                record.update({f"psi_y{c}": float(v) for c, v in enumerate(psi_y)})
+            record["n"] = int(n.sum())
 
             # ---- FAIR2: collect g^i(w_t), take the fairness step -------------
-            g = _fair2(grid, node_ids, G, mu_s, mu_f, t)
-            # Alg. 1 line 3 with the constants of Eq. (9) / App. A.6 restored,
-            # and lambda from Eq. (10) reinstated (Sec. 3 absorbs it into psi).
-            step = cfg.fairness_step_size * cfg.fairness_lambda * psi_scale(
-                n, cfg.psi_normalization
-            )
+            # The constants of Eq. (9) / App. A.6 and the weights w_y travel to
+            # the clients as c_y, so the summed reply is grad psi itself.
+            scale = stratum_scales(
+                n, cfg.psi_normalization, cfg.khsic_stratum_weights
+            ).to(G.dtype)
+            g = _fair2(grid, node_ids, G, mu_s, mu_f, scale, t)
+            # Alg. 1 line 3, with lambda from Eq. (10) reinstated (Sec. 3 absorbs
+            # it into psi).
+            step = cfg.fairness_step_size * cfg.fairness_lambda
             w_half = {k: weights[k] - step * g[k] for k in weights}
-            record["fair_grad_norm"] = float(
+            record["fair_grad_norm"] = float(  # ||grad psi||
                 torch.sqrt(sum((g[k] ** 2).sum() for k in g))
             )
+            record["fair_step_norm"] = step * record["fair_grad_norm"]
 
         # ---- Local Update: prox step, then aggregate -------------------------
         prox_mu = cfg.prox_mu if cfg.uses_fairness else 0.0
@@ -132,7 +146,7 @@ def _fair1(
                 M=torch.from_numpy(arrays["M"].numpy()),
                 mu_s=torch.from_numpy(arrays["mu_s"].numpy()),
                 mu_f=torch.from_numpy(arrays["mu_f"].numpy()),
-                n_i=int(reply.content["metrics"]["n_i"]),
+                n=torch.from_numpy(arrays["n"].numpy()),
             )
         )
     return terms
@@ -144,6 +158,7 @@ def _fair2(
     G: torch.Tensor,
     mu_s: torch.Tensor,
     mu_f: torch.Tensor,
+    scale: torch.Tensor,
     t: int,
 ) -> dict[str, torch.Tensor]:
     """Algorithm 3, lines 10-13: gather ``g^i(w_t)`` and sum them (Lemma 2).
@@ -156,7 +171,11 @@ def _fair2(
         [
             Message(
                 content=RecordDict(
-                    {"arrays": tensors_to_record(G=G, mu_s=mu_s, mu_f=mu_f)}
+                    {
+                        "arrays": tensors_to_record(
+                            G=G, mu_s=mu_s, mu_f=mu_f, scale=scale
+                        )
+                    }
                 ),
                 message_type="query.fair2",
                 dst_node_id=nid,
@@ -247,13 +266,16 @@ def _check(reply: Message, stage: str) -> None:
 def _summary(cfg: KFFLConfig, ds) -> str:
     return (
         f"{cfg.algorithm} | {ds.name}/{cfg.model} | {cfg.partition} | "
+        f"khsic={cfg.khsic_conditioning}/{cfg.khsic_stratum_weights} "
         f"lambda={cfg.fairness_lambda} D={cfg.rfm_dim} alpha={cfg.alpha} "
         f"prox_mu={cfg.prox_mu:.4g} rounds={cfg.num_server_rounds} seed={cfg.seed}"
     )
 
 
 def _fmt(record: dict) -> str:
-    keys = ["accuracy", "spd", "eo", "rmse", "ks", "train_loss", "psi"]
+    keys = ["accuracy", "spd", "eo", "rmse", "ks", "pos_rate", "train_loss", "psi"]
+    if record.get("spd") != record.get("spd"):  # NaN: K > 2, show the multi-group gaps
+        keys[1:3] = ["spd_multi", "eo_multi"]
     return "  ".join(
         f"{k}={record[k]:.4f}" for k in keys if k in record and record[k] == record[k]
     )

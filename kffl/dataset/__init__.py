@@ -4,12 +4,13 @@ from __future__ import annotations
 
 from functools import lru_cache
 
-from kffl.dataset import adult
+from kffl.dataset import adult, compas
 from kffl.dataset.base import Dataset, Split
 from kffl.dataset.partition import partition
 
 LOADERS = {
     "adult": adult.load,
+    "compas": compas.load,
 }
 
 

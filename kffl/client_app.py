@@ -21,7 +21,7 @@ from flwr.clientapp import ClientApp
 from kffl.config import KFFLConfig
 from kffl.dataset import get_dataset, partition
 from kffl.fairness import RandomFeatureMap, derive_seed
-from kffl.fairness.khsic import local_interaction, local_terms
+from kffl.fairness.khsic import local_interaction, local_terms, strata_onehot
 from kffl.ml import build_loss, build_model, solve_local
 from kffl.utils import record_to_state, state_to_record, tensors_to_record
 
@@ -44,11 +44,11 @@ def _load_partition(
     mode: str,
     partition_id: int,
     num_partitions: int,
-) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor, int]:
+) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor, int, int]:
     """The client's share of the training data (Appendix B.3)."""
     ds = get_dataset(dataset, sensitive_attribute, exclude_sensitive)
     idx = partition(
-        ds.train.s,
+        ds.train.partition_key,
         num_partitions=num_partitions,
         scheme=scheme,
         seed=seed,
@@ -61,13 +61,14 @@ def _load_partition(
         torch.from_numpy(local.s),
         torch.from_numpy(local.y),
         ds.num_groups,
+        ds.num_classes,
     )
 
 
 def _setup(context: Context):
     """Config, a fresh model, and this client's local data"""
     cfg = KFFLConfig.from_run_config(context.run_config)
-    X, s, y, num_groups = _load_partition(
+    X, s, y, num_groups, num_classes = _load_partition(
         cfg.dataset,
         cfg.sensitive_attribute,
         cfg.exclude_sensitive_from_features,
@@ -79,7 +80,7 @@ def _setup(context: Context):
         int(context.node_config["num-partitions"]),
     )
     model = build_model(cfg.model, X.shape[1])
-    return cfg, model, X, s, y, num_groups
+    return cfg, model, X, s, y, num_groups, num_classes
 
 
 def _encode_sensitive(
@@ -118,7 +119,7 @@ def _model_output(model, X: torch.Tensor, how: str) -> torch.Tensor:
 
 @app.query("fair1")
 def fair1(msg: Message, context: Context) -> Message:
-    cfg, model, X, s, y, num_groups = _setup(context)
+    cfg, model, X, s, y, num_groups, num_classes = _setup(context)
     model.load_state_dict(record_to_state(msg.content["arrays"]))
 
     zeta = int(msg.content["config"]["zeta"])
@@ -128,7 +129,9 @@ def fair1(msg: Message, context: Context) -> Message:
     with torch.no_grad():
         Z_s = phi_s(s_enc)
         Z_f = phi_f(_model_output(model, X, cfg.fairness_output))
-        terms = local_terms(Z_s, Z_f)  # Eqs. (14), (19), (20)
+        # Eqs. (14), (19), (20), once per stratum (one stratum unless conditional)
+        R = strata_onehot(y, cfg.khsic_conditioning, num_classes)
+        terms = local_terms(Z_s, Z_f, R)
 
     # Cache w_t and zeta: FAIR2 needs both and the server does not resend them.
     context.state["w_t"] = msg.content["arrays"]
@@ -138,9 +141,8 @@ def fair1(msg: Message, context: Context) -> Message:
         content=RecordDict(
             {
                 "arrays": tensors_to_record(
-                    M=terms.M, mu_s=terms.mu_s, mu_f=terms.mu_f
+                    M=terms.M, mu_s=terms.mu_s, mu_f=terms.mu_f, n=terms.n
                 ),
-                "metrics": MetricRecord({"n_i": terms.n_i}),
             }
         ),
         reply_to=msg,
@@ -154,7 +156,7 @@ def fair1(msg: Message, context: Context) -> Message:
 
 @app.query("fair2")
 def fair2(msg: Message, context: Context) -> Message:
-    cfg, model, X, s, y, num_groups = _setup(context)
+    cfg, model, X, s, y, num_groups, num_classes = _setup(context)
     model.load_state_dict(record_to_state(context.state["w_t"]))
 
     zeta = int(context.state["fair"]["zeta"])
@@ -164,20 +166,22 @@ def fair2(msg: Message, context: Context) -> Message:
     G = torch.from_numpy(msg.content["arrays"]["G"].numpy())
     mu_s = torch.from_numpy(msg.content["arrays"]["mu_s"].numpy())
     mu_f = torch.from_numpy(msg.content["arrays"]["mu_f"].numpy())
+    scale = torch.from_numpy(msg.content["arrays"]["scale"].numpy())  # c_y
 
     # Recompute M^i(w_t) under autograd.  Algorithm 2 line 2 says to *store*
     # M^i from FAIR1, but a stored value carries no graph; the forward pass has
     # to be replayed to get the Jacobian. Same seed zeta => same feature space.
     Z_s = phi_s(s_enc)
     Z_f = phi_f(_model_output(model, X, cfg.fairness_output))
-    M = Z_s.T @ Z_f  # Eq. (14)
+    R = strata_onehot(y, cfg.khsic_conditioning, num_classes)
+    local = local_terms(Z_s, Z_f, R)  # M^{i,y}(w), mu_{f,i,y}(w): Eqs. (14), (20)
 
-    Omega = local_interaction(  # Eq. (15)
-        M=M,
+    Omega = local_interaction(  # Eq. (15), per stratum
+        M=local.M,
         mu_s=mu_s,
-        mu_f_local=Z_f.mean(dim=0),
+        mu_f_local=local.mu_f,
         mu_f_global=mu_f,
-        n_i=X.shape[0],
+        n_i=local.n,
         variant=cfg.omega_variant,
     )
 
@@ -185,7 +189,9 @@ def fair2(msg: Message, context: Context) -> Message:
     # with G held fixed.
     names = [n for n, _ in model.named_parameters()]
     params = [p for _, p in model.named_parameters()]
-    grads = torch.autograd.grad((Omega * G).sum(), params)
+    # The per-stratum scales c_y are applied here so that one gradient is
+    # returned whatever the number of strata: g^i = sum_y c_y J_{Omega_{i,y}}^T G_y.
+    grads = torch.autograd.grad((scale[:, None, None] * Omega * G).sum(), params)
 
     return Message(
         content=RecordDict({"arrays": state_to_record(dict(zip(names, grads)))}),
@@ -200,7 +206,7 @@ def fair2(msg: Message, context: Context) -> Message:
 
 @app.train("local_update")
 def local_update(msg: Message, context: Context) -> Message:
-    cfg, model, X, s, y, _ = _setup(context)
+    cfg, model, X, s, y, _, _ = _setup(context)
     model.load_state_dict(record_to_state(msg.content["arrays"]))
 
     prox_mu = float(msg.content["config"]["prox_mu"])

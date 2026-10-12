@@ -28,6 +28,7 @@ class KFFLConfig:
     # model / task (App. B.4)
     model: str
     task: str
+    model_init: str
 
     # optimisation (App. B.1)
     num_server_rounds: int
@@ -48,6 +49,8 @@ class KFFLConfig:
     rfm_resample: str
     fairness_output: str
     sensitive_encoding: str
+    khsic_conditioning: str
+    khsic_stratum_weights: str
 
     # fidelity switches
     psi_normalization: str
@@ -101,6 +104,7 @@ class KFFLConfig:
             exclude_sensitive_from_features=bool(g("exclude-sensitive-from-features")),
             model=str(g("model")),
             task=str(g("task")),
+            model_init=str(run_config.get("model-init", "default")),
             num_server_rounds=int(g("num-server-rounds")),
             local_epochs=int(g("local-epochs")),
             batch_size=int(g("batch-size")),
@@ -117,6 +121,10 @@ class KFFLConfig:
             rfm_resample=str(g("rfm-resample")),
             fairness_output=str(g("fairness-output")),
             sensitive_encoding=str(g("sensitive-encoding")),
+            khsic_conditioning=str(run_config.get("khsic-conditioning", "none")),
+            khsic_stratum_weights=str(
+                run_config.get("khsic-stratum-weights", "prevalence")
+            ),
             psi_normalization=str(g("psi-normalization")),
             omega_variant=str(g("omega-variant")),
             fairness_step_size_raw=float(g("fairness-step-size")),

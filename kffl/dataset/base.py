@@ -19,17 +19,34 @@ class Split:
         Sensitive covariate, encoded as a group index in ``{0, ..., K-1}``.
     y : (n,) float32
         Ground-truth label (binary 0/1 for classification, real for regression).
+    s_partition : (n,) int64, optional
+        Binary group used only to build the non-IID client split.
     """
 
     X: np.ndarray
     s: np.ndarray
     y: np.ndarray
+    s_partition: np.ndarray | None = None
 
     def __len__(self) -> int:
         return int(self.X.shape[0])
 
+    @property
+    def partition_key(self) -> np.ndarray:
+        """Binary attribute that drives the non-IID split (Appendix B.3).
+
+        B.3 only defines the split for a binary protected group, so datasets
+        with K > 2 groups supply a binary ``s_partition``; otherwise it is ``s``.
+        """
+        return self.s if self.s_partition is None else self.s_partition
+
     def subset(self, idx: np.ndarray) -> "Split":
-        return Split(X=self.X[idx], s=self.s[idx], y=self.y[idx])
+        return Split(
+            X=self.X[idx],
+            s=self.s[idx],
+            y=self.y[idx],
+            s_partition=None if self.s_partition is None else self.s_partition[idx],
+        )
 
 
 @dataclass(frozen=True)
@@ -43,3 +60,4 @@ class Dataset:
     num_features: int  # d, the input width of f(.; w)
     num_groups: int  # K, the number of sensitive groups
     sensitive_attribute: str
+    num_classes: int = 2  # C, the number of label classes (0 for regression)
