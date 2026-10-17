@@ -54,15 +54,15 @@ FIELDS = [
 
 # Several Ray-backed simulations starting in the same second occasionally fail to
 # register their workers; space out launches and retry a failed run once.
-STAGGER_SECONDS = 4.0
-ATTEMPTS = 2
+STAGGER_SECONDS = 6.0
+ATTEMPTS = 4
 _launch_lock = threading.Lock()
 
 
-def _flwr_run(cmd: list[str]) -> tuple[int, str, str]:
+def _flwr_run(cmd: list[str], stagger: float) -> tuple[int, str, str]:
     with _launch_lock:
         proc = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
-        time.sleep(STAGGER_SECONDS)
+        time.sleep(stagger)
     stdout, stderr = proc.communicate()
     return proc.returncode, stdout, stderr
 
@@ -89,9 +89,11 @@ def run_one(lam: float, seed: int, args, run_dir: Path) -> dict:
 
     result = Path(args.app) / out
     for _ in range(ATTEMPTS):
-        code, stdout, stderr = _flwr_run(
-            ["flwr", "run", args.app, "--run-config", " ".join(pairs)]
-        )
+        if args.inprocess:  # same apps, no Ray: see scripts/run_inprocess.py
+            cmd = [sys.executable, "scripts/run_inprocess.py", "--run-config", " ".join(pairs)]
+        else:
+            cmd = ["flwr", "run", args.app, "--run-config", " ".join(pairs)]
+        code, stdout, stderr = _flwr_run(cmd, 0.0 if args.inprocess else STAGGER_SECONDS)
         if code == 0 and result.exists():
             break
     else:
@@ -144,7 +146,9 @@ def main() -> None:
     p.add_argument("--grid", default=None, help=f"one of {sorted(LAMBDA_GRIDS)}")
     p.add_argument("--lambdas", default=None, help="comma-separated; overrides --grid")
     p.add_argument("--extra", default="", help="extra --run-config pairs")
-    p.add_argument("--jobs", type=int, default=1, help="concurrent flwr runs")
+    p.add_argument("--jobs", type=int, default=1, help="concurrent runs")
+    p.add_argument("--inprocess", action="store_true",
+                   help="run each simulation in one process without Ray (much faster)")
     p.add_argument("--out", default=None)
     args = p.parse_args()
 
