@@ -60,6 +60,7 @@ class KFFLConfig:
     # misc
     seed: int
     results_path: str
+    save_model_path: str
 
     # -- derived ------------------------------------------------------------
 
@@ -130,4 +131,5 @@ class KFFLConfig:
             fairness_step_size_raw=float(g("fairness-step-size")),
             seed=int(g("seed")),
             results_path=str(g("results-path")),
+            save_model_path=str(run_config.get("save-model-path", "")),
         )

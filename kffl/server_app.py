@@ -111,6 +111,9 @@ def main(grid: Grid, context: Context) -> None:
         log(INFO, "round %2d/%d  %s", t + 1, cfg.num_server_rounds, _fmt(record))
 
     _save(cfg, ds, history)
+    if cfg.save_model_path:  # final global model, e.g. for post-processing baselines
+        Path(cfg.save_model_path).parent.mkdir(parents=True, exist_ok=True)
+        torch.save(weights, cfg.save_model_path)
 
 
 # --------------------------------------------------------------------------

@@ -96,6 +96,7 @@ fairness-step-size = 1.0
 # --- misc ------------------------------------------------------------------
 seed = 0
 results-path = "results/run.json"
+save-model-path = ""                  # if set, the final global model is saved here
 
 [tool.flwr.federations]
 default = "local-simulation"
