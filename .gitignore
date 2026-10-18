@@ -4,10 +4,11 @@ __pycache__/
 build/
 dist/
 data/*.npz
-# data/adult/*.npz
+data/adult/*.npz
 results/*.tmp.json
 .DS_Store
 data/compas/*.npz
+data/bank/*.npz
 results/.runs/
 results/models/
 results/logs
